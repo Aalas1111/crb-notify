@@ -58,7 +58,7 @@ def _message(item: dict[str, Any]) -> str:
         f"【教室借用】「{title}」没有通过。\n"
         f"时间：{when}\n"
         f"原因：{reason}\n"
-        f"（需要改时间或换场地的，改完让发起人重新提交。）"
+        f"（需要改时间或换场地的，请重新提交另一份申请）"
     )
 
 

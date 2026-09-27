@@ -397,3 +397,19 @@ def test_approved_message_has_no_check_the_hall_line():
     message = deliver._message(payload)
     assert "办事大厅" not in message
     assert message.endswith("教室：新教-404"), message
+
+
+def test_rejected_message_says_submit_another_one():
+    """退回那条的备注要说清「重新提交另一份申请」。
+
+    原来是「改完让发起人重新提交」——**改哪儿、谁是发起人**都没说，群里读的人
+    不一定接得上（需求方 2026-09-27 改的词）。
+    """
+    payload = {
+        "type": "rejected",
+        "activity": {"title": "cac", "date": "2026-09-30", "slotStart": "第10节"},
+        "result": {"feedback": "申请时间不符合教室借用要求"},
+    }
+    message = deliver._message(payload)
+    assert "（需要改时间或换场地的，请重新提交另一份申请）" in message
+    assert "发起人" not in message
