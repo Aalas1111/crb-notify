@@ -1,9 +1,9 @@
 """命令行入口。
 
-crba serve      起接收服务（8788）—— 插件往这里投
-crba show       看收到的记录、账本、已生成的通知
-crba deliver    把两条出路各跑一遍（补发；幂等，重复跑不会重复通知）
-crba version
+crb-notify serve      起接收服务（8788）—— 插件往这里投
+crb-notify show       看收到的记录、账本、已生成的通知
+crb-notify deliver    把两条出路各跑一遍（补发；幂等，重复跑不会重复通知）
+crb-notify version
 """
 
 from __future__ import annotations
@@ -44,13 +44,13 @@ def _settings() -> Settings:
 @app.command("version")
 def version_cmd() -> None:
     """显示版本。"""
-    typer.echo(f"crba {__version__}")
+    typer.echo(f"crbn {__version__}")
 
 
 @app.command("serve")
 def serve_cmd(
-    host: Annotated[str | None, typer.Option("--host", help="默认 CRBA_HOST 或 0.0.0.0")] = None,
-    port: Annotated[int | None, typer.Option("--port", help="默认 CRBA_PORT 或 8788")] = None,
+    host: Annotated[str | None, typer.Option("--host", help="默认 CRBN_HOST 或 0.0.0.0")] = None,
+    port: Annotated[int | None, typer.Option("--port", help="默认 CRBN_PORT 或 8788")] = None,
 ) -> None:
     """起接收服务。插件 POST 到 `http://<地址>:<端口>/intake/records`。"""
     import uvicorn
@@ -222,7 +222,7 @@ def forget_cmd(
         fg=typer.colors.GREEN,
     )
     # 账本已经改了，但两条出路任一失败都算「没弄完」—— 要看得见，且别返回 0。
-    # （实测踩到：手工跑时 `CRBA_YQA_BIN` 没设 → yqa 找不到 → 这里曾经只印一个 None，
+    # （实测踩到：手工跑时 `CRBN_YQA_BIN` 没设 → yqa 找不到 → 这里曾经只印一个 None，
     #   看起来像成功了，实际语雀那篇没重生。）
     yuque, qq = result["yuque"], result["qq"]
     if yuque.get("ok"):

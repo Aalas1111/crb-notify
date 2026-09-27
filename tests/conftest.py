@@ -18,7 +18,7 @@ from crb_notify.config import Settings
 @pytest.fixture
 def workspace(tmp_path: Path) -> Path:
     """本项目的工作区（账本 / 记录快照 / 产出）。"""
-    root = tmp_path / "crba"
+    root = tmp_path / "crbn"
     root.mkdir()
     return root
 

@@ -100,15 +100,15 @@ class Settings:
                 "它决定 plan.json 在哪 —— 没有它就无法把学校记录关联回语雀的申请。"
             )
         return cls(
-            port=int(_first(os.environ.get("CRBA_PORT")) or DEFAULT_PORT),
-            host=_first(os.environ.get("CRBA_HOST")) or "0.0.0.0",
-            workspace=_env_path("CRBA_WORKSPACE", Path("/var/lib/crb-notify/workspace")),
+            port=int(_first(os.environ.get("CRBN_PORT")) or DEFAULT_PORT),
+            host=_first(os.environ.get("CRBN_HOST")) or "0.0.0.0",
+            workspace=_env_path("CRBN_WORKSPACE", Path("/var/lib/crb-notify/workspace")),
             yuque_workspace=_env_path(
-                "CRBA_YUQUE_WORKSPACE", Path("/var/lib/yuque-agent/workspace")
+                "CRBN_YUQUE_WORKSPACE", Path("/var/lib/yuque-agent/workspace")
             ),
             yqa_repo=repo,
-            yqa_bin=_first(os.environ.get("CRBA_YQA_BIN"), "yqa"),
-            intake_key=_first(os.environ.get("CRBA_INTAKE_KEY")),
-            notify_qq=_env_flag("CRBA_NOTIFY_QQ", True),
-            notify_yuque=_env_flag("CRBA_NOTIFY_YUQUE", True),
+            yqa_bin=_first(os.environ.get("CRBN_YQA_BIN"), "yqa"),
+            intake_key=_first(os.environ.get("CRBN_INTAKE_KEY")),
+            notify_qq=_env_flag("CRBN_NOTIFY_QQ", True),
+            notify_yuque=_env_flag("CRBN_NOTIFY_YUQUE", True),
         )

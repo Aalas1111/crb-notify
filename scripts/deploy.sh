@@ -17,7 +17,7 @@ LOG="$STATE/ops.log"
 LOCK="$STATE/.deploy.lock"
 WHO="${WHO:-$(whoami)@$(hostname -s)}"
 UNIT=crb-notify.service
-PORT="${CRBA_PORT:-8788}"
+PORT="${CRBN_PORT:-8788}"
 
 say() { printf '\n== %s\n' "$*"; }
 die() { printf '✗ %s\n' "$*" >&2; exit 1; }

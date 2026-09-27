@@ -114,7 +114,7 @@ def _already_delivered(settings: Settings, notice_id: str) -> bool:
 def write_qq_notices(settings: Settings, document: dict[str, Any]) -> dict[str, Any]:
     """把文档里**还没投过**的通知写进 `pending/`。返回写了什么。"""
     if not settings.notify_qq:
-        return {"ok": True, "skipped": "CRBA_NOTIFY_QQ=off"}
+        return {"ok": True, "skipped": "CRBN_NOTIFY_QQ=off"}
 
     folder = settings.notify_pending_dir()
     try:
@@ -150,7 +150,7 @@ def write_qq_notices(settings: Settings, document: dict[str, Any]) -> dict[str, 
 def refresh_yuque(settings: Settings) -> dict[str, Any]:
     """让语雀那篇《审批结果》重生（幂等，失败不影响接收成功）。"""
     if not settings.notify_yuque:
-        return {"ok": True, "skipped": "CRBA_NOTIFY_YUQUE=off"}
+        return {"ok": True, "skipped": "CRBN_NOTIFY_YUQUE=off"}
     cmd = [
         *shlex.split(settings.yqa_bin),
         "refresh-approval",

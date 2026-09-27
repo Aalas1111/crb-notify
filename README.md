@@ -33,7 +33,7 @@
 ```bash
 uv sync
 export YQA_REPO='<group>/<repo>'        # 语雀知识库（决定 plan.json 在哪）
-export CRBA_INTAKE_KEY='<一串随机>'
+export CRBN_INTAKE_KEY='<一串随机>'
 uv run crb-notify serve                  # → http://127.0.0.1:8788/intake/records
 ```
 

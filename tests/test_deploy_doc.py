@@ -39,13 +39,36 @@ def test_exec_start_uses_a_command_declared_in_pyproject():
 
 
 def test_unit_never_references_the_old_project_name():
-    """旧名字（`crb-agent` / `crba`）不该出现在单元里 —— 改名字时最容易漏这儿。"""
+    """旧名字（`crb-agent` / `crba` / `CRBA_`）不该出现在单元里 —— 改名字时最容易漏这儿。"""
     for line in UNIT.splitlines():
         stripped = line.strip()
         if stripped.startswith("#") or stripped.startswith(("Description=", "Documentation=")):
             continue
         assert "crba " not in stripped, f"单元里还有旧命令名：{stripped}"
         assert "crb-agent" not in stripped, f"单元里还有旧项目名：{stripped}"
+        assert "CRBA_" not in stripped, f"单元里还有旧变量前缀：{stripped}"
+
+
+def test_the_retired_crba_name_is_gone_from_the_shipped_code():
+    """`CRBA` 是 crb-agent 时代的缩写，现在叫 **CRBN**。
+
+    半改不改是最坏的结果：`config.py` 读 `CRBN_INTAKE_KEY` 而 env 文件里还写着
+    `CRBA_INTAKE_KEY` → 密钥读成空 → 端点**静默变成谁都能投**。
+    所以这里钉住「一个都不许剩」，而不是只盯单元。
+    """
+    offenders = []
+    for pattern in (
+        "src/**/*.py",
+        "docs/**/*.md",
+        "deploy/*",
+        "scripts/*",
+        "README.md",
+        "AGENTS.md",
+    ):
+        for path in sorted(ROOT.glob(pattern)):
+            if path.is_file() and "CRBA" in path.read_text(encoding="utf-8"):
+                offenders.append(path.relative_to(ROOT).as_posix())
+    assert not offenders, f"这些文件里还写着旧缩写 CRBA：{offenders}"
 
 
 def test_unit_quotes_environment_values_with_spaces():
@@ -72,16 +95,16 @@ def test_unit_writes_both_our_workspace_and_the_notice_queue():
 
 
 def test_unit_does_not_shadow_config_that_lives_in_the_env_file():
-    """`CRBA_*` 配置只放 `/home/yuque/.crb-notify/env` —— 单元与手工 CLI 共用一份。
+    """`CRBN_*` 配置只放 `/home/yuque/.crb-notify/env` —— 单元与手工 CLI 共用一份。
 
     实测踩到：它们曾经只写在单元的 `Environment=` 里。服务一切正常，但**手工跑
-    CLI**（`show` / `forget` / `deliver`）时没有这些值：`CRBA_YQA_BIN` 回落到机器上
+    CLI**（`show` / `forget` / `deliver`）时没有这些值：`CRBN_YQA_BIN` 回落到机器上
     根本没装的 `yqa`，于是 `refresh-approval` 失败 —— 而当时的 `forget` 只印了一句
     「语雀《审批结果》：None」就返回 0，看着像成功。配置放两处就一定会漂。
     """
     deploy_doc = (ROOT / "docs" / "deploy.md").read_text(encoding="utf-8")
-    assert "CRBA_YQA_BIN" not in _UNIT_CODE, "它该在 env 文件里；写进单元就等于只有服务拿得到"
-    assert "CRBA_YQA_BIN" in deploy_doc, "文档要说清它从哪来（手工跑要 source 那个文件）"
+    assert "CRBN_YQA_BIN" not in _UNIT_CODE, "它该在 env 文件里；写进单元就等于只有服务拿得到"
+    assert "CRBN_YQA_BIN" in deploy_doc, "文档要说清它从哪来（手工跑要 source 那个文件）"
 
 
 def test_deploy_script_keeps_the_hard_won_fixes():

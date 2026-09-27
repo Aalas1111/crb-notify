@@ -59,9 +59,9 @@ def _send(settings: Settings, records: list[Any]) -> dict[str, Any]:
 def _forget(monkeypatch, settings: Settings, *args: str):
     """按操作员的样子跑 CLI —— 走 `Settings.from_env()`，所以环境得摆好。"""
     monkeypatch.setenv("YQA_REPO", settings.yqa_repo)
-    monkeypatch.setenv("CRBA_WORKSPACE", str(settings.workspace))
-    monkeypatch.setenv("CRBA_YUQUE_WORKSPACE", str(settings.yuque_workspace))
-    monkeypatch.setenv("CRBA_NOTIFY_YUQUE", "off")
+    monkeypatch.setenv("CRBN_WORKSPACE", str(settings.workspace))
+    monkeypatch.setenv("CRBN_YUQUE_WORKSPACE", str(settings.yuque_workspace))
+    monkeypatch.setenv("CRBN_NOTIFY_YUQUE", "off")
     return CliRunner().invoke(app, ["forget", *args])
 
 
@@ -217,16 +217,16 @@ def test_forget_all_clears_the_whole_ledger(settings: Settings, monkeypatch):
 def test_yuque_failure_is_reported_and_fails_the_command(settings: Settings, monkeypatch):
     """语雀那步失败不能装成功。
 
-    实测踩到：手工跑 `forget` 时 `CRBA_YQA_BIN` 没设上 → `yqa` 找不到 →
+    实测踩到：手工跑 `forget` 时 `CRBN_YQA_BIN` 没设上 → `yqa` 找不到 →
     `refresh_yuque` 返回失败，而命令只印了一句「语雀《审批结果》：None」就返回 0
     —— 看着像成功，其实那篇文档没重生。**没有 yqa 就等于没弄完，要退非 0。**
     """
     _send(settings, [{"raw": FAKE}])
     monkeypatch.setenv("YQA_REPO", settings.yqa_repo)
-    monkeypatch.setenv("CRBA_WORKSPACE", str(settings.workspace))
-    monkeypatch.setenv("CRBA_YUQUE_WORKSPACE", str(settings.yuque_workspace))
-    monkeypatch.setenv("CRBA_NOTIFY_YUQUE", "on")
-    monkeypatch.setenv("CRBA_YQA_BIN", "surely-not-an-installed-command")
+    monkeypatch.setenv("CRBN_WORKSPACE", str(settings.workspace))
+    monkeypatch.setenv("CRBN_YUQUE_WORKSPACE", str(settings.yuque_workspace))
+    monkeypatch.setenv("CRBN_NOTIFY_YUQUE", "on")
+    monkeypatch.setenv("CRBN_YQA_BIN", "surely-not-an-installed-command")
 
     result = CliRunner().invoke(app, ["forget", FAKE["SQBH"], "--yes"])
 

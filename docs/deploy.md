@@ -23,7 +23,7 @@ sudo -u yuque env HOME=/home/yuque /usr/local/bin/uv run \
 sudo -u yuque env HOME=/home/yuque /usr/local/bin/uv sync --project /opt/crb-notify
 ```
 
-`CRBA_YQA_BIN`（在 `/home/yuque/.crb-notify/env` 里）指着那个检出
+`CRBN_YQA_BIN`（在 `/home/yuque/.crb-notify/env` 里）指着那个检出
 （`uv run --no-sync --project /opt/yuque-agent yqa`）—— **让两个服务共用同一份 yqa**，
 版本与文案不会漂。**它不在单元里**：单元写的值只有服务拿得到，手工跑 CLI 就会缺
 （见 §5 的手工命令）。
@@ -34,11 +34,11 @@ sudo -u yuque env HOME=/home/yuque /usr/local/bin/uv sync --project /opt/crb-not
 
 | 变量 | 说明 |
 |---|---|
-| `CRBA_INTAKE_KEY` | 投递密钥。**不是安全边界**（插件是油猴脚本，源码谁都能看），只是挡误投与扫描器 |
-| `CRBA_WORKSPACE` | `/var/lib/crb-notify/workspace`（账本、记录快照、产出） |
-| `CRBA_YUQUE_WORKSPACE` | `/var/lib/yuque-agent/workspace`（找 `plan.json` 与 `notify/pending/`） |
-| `CRBA_PORT` | `8788` |
-| `CRBA_YQA_BIN` | `uv run --no-sync --project /opt/yuque-agent yqa`（值里有空格，**要加引号**） |
+| `CRBN_INTAKE_KEY` | 投递密钥。**不是安全边界**（插件是油猴脚本，源码谁都能看），只是挡误投与扫描器 |
+| `CRBN_WORKSPACE` | `/var/lib/crb-notify/workspace`（账本、记录快照、产出） |
+| `CRBN_YUQUE_WORKSPACE` | `/var/lib/yuque-agent/workspace`（找 `plan.json` 与 `notify/pending/`） |
+| `CRBN_PORT` | `8788` |
+| `CRBN_YQA_BIN` | `uv run --no-sync --project /opt/yuque-agent yqa`（值里有空格，**要加引号**） |
 
 另一个必需的变量在别处：`YQA_REPO`（`/home/yuque/.yuque/agent.env`，已存在，
 `ghxd00/jsjysq`）—— 它决定 `plan.json` 在哪。
@@ -72,14 +72,14 @@ curl -s -X POST http://<地址>:8788/intake/records \
 ### 手工跑 CLI（`show` / `forget` / `deliver`）
 
 **要把两个 env 文件都带上** —— 单元就是这么加载的。少带 `.crb-notify/env` 会缺
-`CRBA_YQA_BIN`，`refresh-approval` 直接失败（实测踩到）。所以先定义一个壳：
+`CRBN_YQA_BIN`，`refresh-approval` 直接失败（实测踩到）。所以先定义一个壳：
 
 ```bash
-crba() { sudo -u yuque sh -c "set -a; . /home/yuque/.yuque/agent.env; \
+crbn() { sudo -u yuque sh -c "set -a; . /home/yuque/.yuque/agent.env; \
   . /home/yuque/.crb-notify/env; set +a; \
   uv run --no-sync --project /opt/crb-notify crb-notify $*"; }
 
-crba show                    # 收到的记录 / 账本 / 待投递 / 认不出的
+crbn show                    # 收到的记录 / 账本 / 待投递 / 认不出的
 ```
 
 ### 清理（联调期的假数据）
@@ -88,9 +88,9 @@ crba show                    # 收到的记录 / 账本 / 待投递 / 认不出�
 见 `AGENTS.md` §1）：
 
 ```bash
-crba forget <SQBH>           # 只列清单，不动任何东西 —— 先看这个
-crba forget <SQBH> --yes     # 真忘掉（可给多个 SQBH）
-crba forget --all --yes      # 全是假数据、想一次清完
+crbn forget <SQBH>           # 只列清单，不动任何东西 —— 先看这个
+crbn forget <SQBH> --yes     # 真忘掉（可给多个 SQBH）
+crbn forget --all --yes      # 全是假数据、想一次清完
 ```
 
 * 账本**只追加**，`forget` 也是 —— 它追加一行墓碑把那条抹掉，文件本身不重写
