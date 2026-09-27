@@ -88,3 +88,17 @@ def test_contract_doc_covers_the_fields_we_ask_the_plugin_for():
         assert f'"{field}"' in code, f"代码白名单里没有 {field}"
     # 手机号必须明确「不要投」——它是唯一被刻意排除的字段
     assert "JYRDH" in contract and "手机号" in contract
+
+
+def test_env_file_path_is_the_same_everywhere():
+    """env 文件的路径在**单元、部署文档**里必须一致，而且要是本项目自己的目录。
+
+    实测踩到：换项目名时把单元里的路径也一起 sed 成了 `.crb-notify/env`，
+    但实际创建的还是旧目录 —— `EnvironmentFile=-…` 的 `-` 会让它**静默跳过**，
+    于是服务起来时「未设密钥」，而整条链路看起来完全正常（谁都能投）。
+    """
+    deploy_doc = (ROOT / "docs" / "deploy.md").read_text(encoding="utf-8")
+    assert "/home/yuque/.crb-notify/env" in UNIT, "单元要指到本项目自己的 env"
+    assert "/home/yuque/.crb-notify/env" in deploy_doc, "文档要写同一个路径"
+    assert ".crb-agent/env" not in UNIT, "别指向旧项目的目录"
+    assert ".crb-agent/env" not in deploy_doc, "文档里也别留旧路径"

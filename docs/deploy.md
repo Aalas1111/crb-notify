@@ -10,7 +10,7 @@
 | `/var/lib/crb-notify/workspace` | 账本、记录快照、产出（本项目自己的） |
 | `/etc/systemd/system/crb-notify.service` | 生效的单元（权威副本在 `deploy/`） |
 | `/var/lib/yuque-agent/workspace/<repo>/outbox/notify/pending/` | QQ 通知取件处（**桥会搬走**） |
-| `/home/yuque/.crb-agent/env` | `CRBA_INTAKE_KEY`（沿用旧项目建的那个文件） |
+| `/home/yuque/.crb-notify/env` | `CRBA_INTAKE_KEY` |
 
 ## 2. 依赖
 
@@ -30,7 +30,7 @@ sudo -u yuque env HOME=/home/yuque /usr/local/bin/uv sync --project /opt/crb-not
 
 | 变量 | 放哪 | 说明 |
 |---|---|---|
-| `CRBA_INTAKE_KEY` | `/home/yuque/.crb-agent/env` | 投递密钥。**不是安全边界**（插件是油猴脚本，源码谁都能看），只是挡误投与扫描器 |
+| `CRBA_INTAKE_KEY` | `/home/yuque/.crb-notify/env` | 投递密钥。**不是安全边界**（插件是油猴脚本，源码谁都能看），只是挡误投与扫描器 |
 | `YQA_REPO` | `/home/yuque/.yuque/agent.env` | 已存在（`ghxd00/jsjysq`），决定 plan.json 在哪 |
 
 ## 4. 部署
