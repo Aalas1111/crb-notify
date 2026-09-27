@@ -97,7 +97,7 @@ def show_cmd() -> None:
     label = {"approved": "已通过", "rejected": "已退回"}
     for entry in ledger:
         snapshot = entry.get("snapshot") or {}
-        rooms = "、".join(entry.get("rooms") or [])
+        rooms = "、".join(notify.split_rooms(*(entry.get("rooms") or [])))
         tail = f"  教室 {rooms}" if rooms else ""
         typer.echo(
             f"  {str(entry.get('first_seen_ended'))[:16]}  "

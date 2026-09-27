@@ -71,6 +71,9 @@ _DRAFT_WORDS = re.compile(r"暂存|草稿")
 #: 「（意向：xxx）」是 crb 提交时写进用途描述的，匹配标题时要剥掉。
 _INTENT_RE = re.compile(r"（意向：[^）]*）\s*$")
 
+#: 教室字段里的分隔符（半角/全角逗号）—— 见 `split_rooms()`。
+_ROOM_SEP = re.compile(r"[,，]")
+
 
 @dataclass
 class Classification:
@@ -89,6 +92,28 @@ class Classification:
         return self.outcome in (OUTCOME_APPROVED, OUTCOME_REJECTED)
 
 
+def split_rooms(*values: Any) -> list[str]:
+    """把学校给的教室字段归一成一串教室名（去重、保序）。
+
+    实测（2026-09-27 的真记录）：`FJ` / `JASMC` **可以是逗号分隔的多个教室**
+    —— ``新教-303,新教-501,新教-403,新教-404,新教-304`` 是**一个**字段值。
+    而且学校自己会重复：``仙Ⅱ-303,仙Ⅱ-303``。两个字段又常常是同一个值。
+
+    所以「按教室去重」不能只比整个字段 —— 差值不长，`仙Ⅱ-303,仙Ⅱ-303`
+    在通知里就原样念两遍。这里拆开、去重，顺带让多个教室各占一项。
+
+    只按逗号拆（半角/全角）：教室名的形状是 ``新教-303`` / ``仙Ⅱ-303``，
+    没见它含逗号；别的分隔符（顿号之类）在真实数据里没出现过，不猜。
+    """
+    out: list[str] = []
+    for value in values:
+        for part in _ROOM_SEP.split(str(value or "")):
+            name = part.strip()
+            if name and name not in out:
+                out.append(name)
+    return out
+
+
 def classify(record: dict[str, Any]) -> Classification:
     """把一条 ``crb borrow list`` 记录判成「结束了没有、结束成什么」。
 
@@ -99,11 +124,8 @@ def classify(record: dict[str, Any]) -> Classification:
     status = text_of(record, "status")
     text = f"{flag} {text_of(record, 'status_text')} {status}"
 
-    # FJ 与 JASMC 往往是同一个教室，**去重**（否则通知里会出现两遍同一个房间）。
-    # 少数记录只给其中一个，所以两个都要看。
-    rooms = list(
-        dict.fromkeys(r for r in (text_of(record, "room"), text_of(record, "room_name")) if r)
-    )
+    # FJ 与 JASMC 往往是同一个值，**两个都看再一起去重**（少数记录只给其中一个）。
+    rooms = split_rooms(text_of(record, "room"), text_of(record, "room_name"))
     feedback = text_of(record, "feedback")
 
     if _DRAFT_WORDS.search(text) or status == "00":
@@ -375,7 +397,9 @@ def build_notifications(
             )
             continue
 
-        rooms = [str(r) for r in (entry.get("rooms") or [])]
+        # 账本里存的可能是老形状（拆分/去重之前记的）—— 出文档时再归一遍，
+        # 否则已经躺在账本里的 `仙Ⅱ-303,仙Ⅱ-303` 会一直念两遍。
+        rooms = split_rooms(*(str(r) for r in (entry.get("rooms") or [])))
         notifications.append(
             {
                 "notificationId": notification_id(str(entry.get("sqbh")), outcome, rooms),

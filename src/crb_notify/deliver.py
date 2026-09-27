@@ -50,12 +50,9 @@ def _message(item: dict[str, Any]) -> str:
     )
     if item.get("type") == "approved":
         rooms = "、".join(str(r) for r in (result.get("actualRooms") or [])) or "（见办事大厅）"
-        return (
-            f"【教室借用】「{title}」已通过。\n"
-            f"时间：{when}\n"
-            f"教室：{rooms}\n"
-            f"（如与预期不符，请到办事大厅核对。）"
-        )
+        # 不写「如与预期不符请到办事大厅核对」：**意向教室本来就不保证申请得到**，
+        # 学校给哪间就是哪间，这不是异常（需求方 2026-09-27 明确要求删掉）。
+        return f"【教室借用】「{title}」已通过。\n时间：{when}\n教室：{rooms}"
     reason = result.get("feedback") or "学校未给原因"
     return (
         f"【教室借用】「{title}」没有通过。\n"

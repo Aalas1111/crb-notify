@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from crb_notify import notify
+from crb_notify import deliver, notify
 
 #: 真实的「审核不通过」记录（字段名与取值都未改动）。
 REJECTED = {
@@ -332,3 +332,68 @@ def test_unknown_status_is_never_silently_dropped(tmp_path: Path):
     bucket = json.loads((approval / "unmatched.json").read_text(encoding="utf-8"))["unmatched"]
     assert len(bucket) == 1
     assert "天知道" in bucket[0]["why"]
+
+
+# ---------------------------------------------------------------- 教室字段的真实形状
+def test_rooms_split_on_commas_and_dedupe(tmp_path: Path):
+    """`FJ`/`JASMC` 可以是**逗号分隔的多个教室**，而且学校自己会重复。
+
+    实测（2026-09-27 的真记录）：
+      * ``新教-303,新教-501,新教-403,新教-404,新教-304`` 是**一个**字段值；
+      * ``仙Ⅱ-303,仙Ⅱ-303`` 也一样 —— 整值去重比不出来，通知里会念两遍。
+    """
+    assert notify.split_rooms("新教-303,新教-501,新教-403") == ["新教-303", "新教-501", "新教-403"]
+    assert notify.split_rooms("仙Ⅱ-303,仙Ⅱ-303") == ["仙Ⅱ-303"]
+    # 两个字段常常是同一个值；只给其中一个的记录也要能用
+    assert notify.split_rooms("新教404", "新教404") == ["新教404"]
+    assert notify.split_rooms("新教404", "") == ["新教404"]
+    assert notify.split_rooms("", "") == []
+    # 全角逗号也见过，别漏
+    assert notify.split_rooms("新教-303，新教-501") == ["新教-303", "新教-501"]
+
+
+def test_classify_normalises_the_room_list():
+    verdict = notify.classify({**APPROVED, "FJ": "新教-303,新教-303", "JASMC": "新教-303,新教-303"})
+    assert verdict.rooms == ["新教-303"]
+
+
+def test_old_ledger_entries_get_normalised_when_rendering(tmp_path: Path):
+    """账本里**已经躺着**的老形状也要归一 —— 否则那两遍会一直念下去。
+
+    归一只在出文档这一步做，账本本身不动（它记的是当时收到什么）。
+    """
+    outbox = _seeded(tmp_path)
+    approval = outbox / "approval"
+    notify.append_ledger(
+        approval,
+        [
+            {
+                "sqbh": APPROVED["SQBH"],
+                "first_seen_ended": "2026-09-27T15:52:00+0800",
+                "outcome": "approved",
+                "reason": "x",
+                "rooms": ["仙Ⅱ-303,仙Ⅱ-303"],  # 老形状：整值是一个逗号串
+                "feedback": "",
+                "snapshot": APPROVED,
+            }
+        ],
+    )
+    notify.rebuild(approval, outbox, [], repo="r")
+    document = json.loads((approval / "notifications.json").read_text(encoding="utf-8"))
+    assert document["notifications"][0]["result"]["actualRooms"] == ["仙Ⅱ-303"]
+
+
+def test_approved_message_has_no_check_the_hall_line():
+    """「如与预期不符请到办事大厅核对」删了。
+
+    **意向教室本来就不保证申请得到** —— 学校给哪间就是哪间，这不是异常，
+    写一句「不符就去核对」只会让人以为出了问题（需求方 2026-09-27 要求）。
+    """
+    payload = {
+        "type": "approved",
+        "activity": {"title": "新生见面会", "date": "2026-10-01", "slotStart": "第7节"},
+        "result": {"actualRooms": ["新教-404"]},
+    }
+    message = deliver._message(payload)
+    assert "办事大厅" not in message
+    assert message.endswith("教室：新教-404"), message
