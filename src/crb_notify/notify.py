@@ -416,7 +416,22 @@ def build_notifications(
         "generatedAt": batch,
         "notifications": notifications,
     }
-    return document, unmatched
+    return document, collapse_by_sqbh(unmatched)
+
+
+def collapse_by_sqbh(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """同一个申请只留**最后**那条。
+
+    一条申请在账本里可以有不止一条记录（`outcome` 变了就是新记录，见 `new_entries`），
+    而 `unmatched.json` 是「哪些申请需要人看一眼」的清单 —— 同一件事排两行只是噪声。
+
+    **只对 unmatched 这么做**：通知文档那边，一条申请出现两条是**故意的**
+    （「已通过但教室待定」→「教室定了」是两条该发出去的消息）。
+    """
+    latest: dict[str, dict[str, Any]] = {}
+    for item in items:
+        latest[str(item.get("sqbh"))] = item
+    return list(latest.values())
 
 
 # ---------------------------------------------------------------- 落盘

@@ -300,3 +300,35 @@ def test_readable_markdown_says_the_result_in_plain_words(tmp_path: Path):
     assert "GHP" in text
     # 程序维护的正文不该出现内部批号
     assert "batchId" not in text
+
+
+# ---------------------------------------------------------------- unmatched 的清单
+def test_unmatched_lists_each_application_only_once(tmp_path: Path):
+    """同一个申请在 unmatched 清单里只该有一行。
+
+    一条申请在账本里可以有不止一条记录（`outcome` 变了就是新记录）——
+    通知文档那边这是**故意的**（「教室待定」→「教室定了」是两条消息），
+    但 unmatched 是「哪些申请要人看一眼」的清单，同一件事排两行纯属噪声。
+    """
+    outbox = _seeded(tmp_path)
+    approval = outbox / "approval"
+    stranger = {**APPROVED, "SQBH": "e" * 32, "KSRQ": "2030-01-01", "JYYTMS": "毫不相干"}
+    # 先记一条「认不出」，再让同一个 sqbh 以另一个状态出现 → 账本里同 sqbh 两条记录
+    notify.rebuild(approval, outbox, [{**stranger, "SHZT_DISPLAY": "天知道", "SHBZ": ""}], repo="r")
+    notify.rebuild(approval, outbox, [stranger], repo="r")
+
+    ledger = notify.read_ledger(approval)
+    assert [str(e["sqbh"]) for e in ledger].count("e" * 32) == 2, "前提：账本里确实有两条"
+
+    bucket = json.loads((approval / "unmatched.json").read_text(encoding="utf-8"))["unmatched"]
+    assert [b["sqbh"] for b in bucket] == ["e" * 32], f"同一个申请出现了多行：{bucket}"
+
+
+def test_unknown_status_is_never_silently_dropped(tmp_path: Path):
+    """认不出就要留痕（清单里那个 `why` 是给人看的）—— 只是不再往文档里塞。"""
+    outbox = _seeded(tmp_path)
+    approval = outbox / "approval"
+    notify.rebuild(approval, outbox, [{**APPROVED, "SHZT_DISPLAY": "天知道", "SHBZ": ""}], repo="r")
+    bucket = json.loads((approval / "unmatched.json").read_text(encoding="utf-8"))["unmatched"]
+    assert len(bucket) == 1
+    assert "天知道" in bucket[0]["why"]
