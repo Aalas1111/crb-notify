@@ -18,6 +18,11 @@ _CODE = "\n".join(
     line for line in DEPLOY.splitlines() if line.strip() and not line.lstrip().startswith("#")
 )
 
+#: 单元里**真正生效**的行（注释不算 —— 注释里提到某个变量名不算「设了它」）
+_UNIT_CODE = "\n".join(
+    line for line in UNIT.splitlines() if line.strip() and not line.lstrip().startswith("#")
+)
+
 
 def test_exec_start_uses_a_command_declared_in_pyproject():
     """写错的表现：服务反复重启，日志里只有一句 `Failed to spawn: crba`。
@@ -64,6 +69,19 @@ def test_unit_writes_both_our_workspace_and_the_notice_queue():
     assert "ReadWritePaths" in UNIT
     assert "/var/lib/crb-notify" in UNIT
     assert "/var/lib/yuque-agent/workspace" in UNIT
+
+
+def test_unit_does_not_shadow_config_that_lives_in_the_env_file():
+    """`CRBA_*` 配置只放 `/home/yuque/.crb-notify/env` —— 单元与手工 CLI 共用一份。
+
+    实测踩到：它们曾经只写在单元的 `Environment=` 里。服务一切正常，但**手工跑
+    CLI**（`show` / `forget` / `deliver`）时没有这些值：`CRBA_YQA_BIN` 回落到机器上
+    根本没装的 `yqa`，于是 `refresh-approval` 失败 —— 而当时的 `forget` 只印了一句
+    「语雀《审批结果》：None」就返回 0，看着像成功。配置放两处就一定会漂。
+    """
+    deploy_doc = (ROOT / "docs" / "deploy.md").read_text(encoding="utf-8")
+    assert "CRBA_YQA_BIN" not in _UNIT_CODE, "它该在 env 文件里；写进单元就等于只有服务拿得到"
+    assert "CRBA_YQA_BIN" in deploy_doc, "文档要说清它从哪来（手工跑要 source 那个文件）"
 
 
 def test_deploy_script_keeps_the_hard_won_fixes():

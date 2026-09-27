@@ -10,7 +10,7 @@
 | `/var/lib/crb-notify/workspace` | 账本、记录快照、产出（本项目自己的） |
 | `/etc/systemd/system/crb-notify.service` | 生效的单元（权威副本在 `deploy/`） |
 | `/var/lib/yuque-agent/workspace/<repo>/outbox/notify/pending/` | QQ 通知取件处（**桥会搬走**） |
-| `/home/yuque/.crb-notify/env` | `CRBA_INTAKE_KEY` |
+| `/home/yuque/.crb-notify/env` | 本项目自己的配置 + 密钥（见 §3） |
 
 ## 2. 依赖
 
@@ -23,15 +23,25 @@ sudo -u yuque env HOME=/home/yuque /usr/local/bin/uv run \
 sudo -u yuque env HOME=/home/yuque /usr/local/bin/uv sync --project /opt/crb-notify
 ```
 
-单元里 `CRBA_YQA_BIN` 指着那个检出（`uv run --no-sync --project /opt/yuque-agent yqa`）——
-**让两个服务共用同一份 yqa**，版本与文案不会漂。
+`CRBA_YQA_BIN`（在 `/home/yuque/.crb-notify/env` 里）指着那个检出
+（`uv run --no-sync --project /opt/yuque-agent yqa`）—— **让两个服务共用同一份 yqa**，
+版本与文案不会漂。**它不在单元里**：单元写的值只有服务拿得到，手工跑 CLI 就会缺
+（见 §5 的手工命令）。
 
-## 3. 凭证
+## 3. 凭证与配置
 
-| 变量 | 放哪 | 说明 |
-|---|---|---|
-| `CRBA_INTAKE_KEY` | `/home/yuque/.crb-notify/env` | 投递密钥。**不是安全边界**（插件是油猴脚本，源码谁都能看），只是挡误投与扫描器 |
-| `YQA_REPO` | `/home/yuque/.yuque/agent.env` | 已存在（`ghxd00/jsjysq`），决定 plan.json 在哪 |
+`/home/yuque/.crb-notify/env` —— **单元与手工 CLI 共用这一份**（`600 yuque:yuque`）：
+
+| 变量 | 说明 |
+|---|---|
+| `CRBA_INTAKE_KEY` | 投递密钥。**不是安全边界**（插件是油猴脚本，源码谁都能看），只是挡误投与扫描器 |
+| `CRBA_WORKSPACE` | `/var/lib/crb-notify/workspace`（账本、记录快照、产出） |
+| `CRBA_YUQUE_WORKSPACE` | `/var/lib/yuque-agent/workspace`（找 `plan.json` 与 `notify/pending/`） |
+| `CRBA_PORT` | `8788` |
+| `CRBA_YQA_BIN` | `uv run --no-sync --project /opt/yuque-agent yqa`（值里有空格，**要加引号**） |
+
+另一个必需的变量在别处：`YQA_REPO`（`/home/yuque/.yuque/agent.env`，已存在，
+`ghxd00/jsjysq`）—— 它决定 `plan.json` 在哪。
 
 ## 4. 部署
 
@@ -59,28 +69,28 @@ curl -s -X POST http://<地址>:8788/intake/records \
 # 期望 {"ok": true, ..., "received": 0}
 ```
 
-看账本与待投递 —— **`show` 要 `YQA_REPO`**（它靠这个找 `plan.json`），
-而系统的环境在 `agent.env` 里，所以得像单元那样把环境带上（直接敲会报
-「没有配置知识库」）：
+### 手工跑 CLI（`show` / `forget` / `deliver`）
+
+**要把两个 env 文件都带上** —— 单元就是这么加载的。少带 `.crb-notify/env` 会缺
+`CRBA_YQA_BIN`，`refresh-approval` 直接失败（实测踩到）。所以先定义一个壳：
 
 ```bash
-sudo -u yuque sh -c 'set -a; . /home/yuque/.yuque/agent.env; set +a; \
-  uv run --no-sync --project /opt/crb-notify crb-notify show'
+crba() { sudo -u yuque sh -c "set -a; . /home/yuque/.yuque/agent.env; \
+  . /home/yuque/.crb-notify/env; set +a; \
+  uv run --no-sync --project /opt/crb-notify crb-notify $*"; }
+
+crba show                    # 收到的记录 / 账本 / 待投递 / 认不出的
 ```
 
 ### 清理（联调期的假数据）
 
 `forget` 是**唯一会改变账本内容**的命令，**只能在机器上敲**（不开 HTTP 路由，
-见 `AGENTS.md` §1）。命令同上，把 `show` 换成 `forget`：
+见 `AGENTS.md` §1）：
 
 ```bash
-sudo -u yuque sh -c 'set -a; . /home/yuque/.yuque/agent.env; set +a; \
-  uv run --no-sync --project /opt/crb-notify crb-notify forget <SQBH> --yes'
-
-# 列清单（不动任何东西）—— 先看这个
-… crb-notify forget <SQBH>
-# 全是假数据、想一次清完
-… crb-notify forget --all --yes
+crba forget <SQBH>           # 只列清单，不动任何东西 —— 先看这个
+crba forget <SQBH> --yes     # 真忘掉（可给多个 SQBH）
+crba forget --all --yes      # 全是假数据、想一次清完
 ```
 
 * 账本**只追加**，`forget` 也是 —— 它追加一行墓碑把那条抹掉，文件本身不重写

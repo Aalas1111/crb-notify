@@ -212,3 +212,24 @@ def test_forget_all_clears_the_whole_ledger(settings: Settings, monkeypatch):
     assert notify.read_ledger(settings.approval_dir()) == []
     assert "忘掉 2 条" in result.output
     assert list(settings.notify_pending_dir().glob("*.json")) == []
+
+
+def test_yuque_failure_is_reported_and_fails_the_command(settings: Settings, monkeypatch):
+    """语雀那步失败不能装成功。
+
+    实测踩到：手工跑 `forget` 时 `CRBA_YQA_BIN` 没设上 → `yqa` 找不到 →
+    `refresh_yuque` 返回失败，而命令只印了一句「语雀《审批结果》：None」就返回 0
+    —— 看着像成功，其实那篇文档没重生。**没有 yqa 就等于没弄完，要退非 0。**
+    """
+    _send(settings, [{"raw": FAKE}])
+    monkeypatch.setenv("YQA_REPO", settings.yqa_repo)
+    monkeypatch.setenv("CRBA_WORKSPACE", str(settings.workspace))
+    monkeypatch.setenv("CRBA_YUQUE_WORKSPACE", str(settings.yuque_workspace))
+    monkeypatch.setenv("CRBA_NOTIFY_YUQUE", "on")
+    monkeypatch.setenv("CRBA_YQA_BIN", "surely-not-an-installed-command")
+
+    result = CliRunner().invoke(app, ["forget", FAKE["SQBH"], "--yes"])
+
+    assert result.exit_code == 1, result.output
+    assert "[FAIL] 语雀《审批结果》" in result.output
+    assert "None" not in result.output

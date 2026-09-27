@@ -10,7 +10,11 @@ User=yuque
 Group=yuque
 WorkingDirectory=/opt/crb-notify
 
-# 复用 yuque-agent 那份环境（YQA_REPO 在里面）；本项目的密钥放它自己的文件。
+# 复用 yuque-agent 那份环境（YQA_REPO 在里面）；本项目自己的配置与密钥
+# 都在它自己的文件里 —— **包括 CRBA_WORKSPACE / CRBA_YQA_BIN**。
+# 那些值曾经写成本单元的 `Environment=`，结果只有服务拿得到：手工跑 CLI
+# （show / forget / deliver）时缺值，`CRBA_YQA_BIN` 回落到机器上没有的 `yqa`，
+# 于是语雀那篇静默不重生。配置只放一处，单元不要重复设。
 EnvironmentFile=/home/yuque/.yuque/agent.env
 EnvironmentFile=-/home/yuque/.crb-notify/env
 
@@ -18,11 +22,6 @@ Environment=HOME=/home/yuque
 Environment=PYTHONUNBUFFERED=1
 Environment=UV_CACHE_DIR=/var/lib/crb-notify/.uv-cache
 Environment=PATH=/home/yuque/.local/bin:/usr/local/bin:/usr/bin:/bin
-Environment=CRBA_WORKSPACE=/var/lib/crb-notify/workspace
-Environment=CRBA_YUQUE_WORKSPACE=/var/lib/yuque-agent/workspace
-Environment=CRBA_PORT=8788
-# yqa 的 CLI 没全局安装，指到它自己的检出（避免两份代码各更新各的）。
-Environment="CRBA_YQA_BIN=uv run --no-sync --project /opt/yuque-agent yqa"
 
 ExecStart=/usr/local/bin/uv run --no-sync crb-notify serve
 

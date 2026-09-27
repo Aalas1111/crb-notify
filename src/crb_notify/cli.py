@@ -215,14 +215,26 @@ def forget_cmd(
 
     summary = notify.rebuild(approval, settings.outbox(), [], repo=settings.yqa_repo)
     document = json.loads((approval / "notifications.json").read_text(encoding="utf-8"))
-    delivery = deliver.deliver(settings, document)
+    result = deliver.deliver(settings, document)
     typer.secho(
         f"[OK] 忘掉 {len(targets)} 条（墓碑 {tombstones} 行），撤回待投递 {withdrawn} 条；"
         f"通知文档现在 {summary['total']} 条、认不出 {summary['unmatched']} 条",
         fg=typer.colors.GREEN,
     )
-    yuque = delivery["yuque"]
-    typer.echo(f"     语雀《审批结果》：{yuque.get('output') or yuque.get('skipped')}")
+    # 账本已经改了，但两条出路任一失败都算「没弄完」—— 要看得见，且别返回 0。
+    # （实测踩到：手工跑时 `CRBA_YQA_BIN` 没设 → yqa 找不到 → 这里曾经只印一个 None，
+    #   看起来像成功了，实际语雀那篇没重生。）
+    yuque, qq = result["yuque"], result["qq"]
+    if yuque.get("ok"):
+        typer.echo(f"     语雀《审批结果》：{yuque.get('output') or yuque.get('skipped')}")
+    else:
+        typer.secho(
+            f"     [FAIL] 语雀《审批结果》：{yuque.get('error')}", fg=typer.colors.RED, err=True
+        )
+    if not qq.get("ok"):
+        typer.secho(f"     [FAIL] QQ 通知：{qq.get('error')}", fg=typer.colors.RED, err=True)
+    if not (yuque.get("ok") and qq.get("ok")):
+        raise typer.Exit(1)
 
 
 @app.command("deliver")
