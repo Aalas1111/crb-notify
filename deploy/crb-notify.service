@@ -1,0 +1,44 @@
+[Unit]
+Description=crb-notify 接收入口（浏览器插件投递申请记录 → 判定 → 出通知）
+Documentation=file:/opt/crb-notify/docs/intake-contract.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yuque
+Group=yuque
+WorkingDirectory=/opt/crb-notify
+
+# 复用 yuque-agent 那份环境（YQA_REPO 在里面）；本项目的密钥放它自己的文件。
+EnvironmentFile=/home/yuque/.yuque/agent.env
+EnvironmentFile=-/home/yuque/.crb-notify/env
+
+Environment=HOME=/home/yuque
+Environment=PYTHONUNBUFFERED=1
+Environment=UV_CACHE_DIR=/var/lib/crb-notify/.uv-cache
+Environment=PATH=/home/yuque/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=CRBA_WORKSPACE=/var/lib/crb-notify/workspace
+Environment=CRBA_YUQUE_WORKSPACE=/var/lib/yuque-agent/workspace
+Environment=CRBA_PORT=8788
+# yqa 的 CLI 没全局安装，指到它自己的检出（避免两份代码各更新各的）。
+Environment="CRBA_YQA_BIN=uv run --no-sync --project /opt/yuque-agent yqa"
+
+ExecStart=/usr/local/bin/uv run --no-sync crba serve
+
+Restart=always
+RestartSec=15
+SuccessExitStatus=143
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+# 要写自己的 workspace；**还要写 yqa 的 outbox/notify/pending/**（QQ 通知取件处）。
+ReadWritePaths=/var/lib/crb-notify /var/lib/yuque-agent/workspace
+ReadOnlyPaths=-/home/yuque/.yuque
+
+[Install]
+WantedBy=multi-user.target
