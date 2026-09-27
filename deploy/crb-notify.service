@@ -24,7 +24,7 @@ Environment=CRBA_PORT=8788
 # yqa 的 CLI 没全局安装，指到它自己的检出（避免两份代码各更新各的）。
 Environment="CRBA_YQA_BIN=uv run --no-sync --project /opt/yuque-agent yqa"
 
-ExecStart=/usr/local/bin/uv run --no-sync crba serve
+ExecStart=/usr/local/bin/uv run --no-sync crb-notify serve
 
 Restart=always
 RestartSec=15
