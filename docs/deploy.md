@@ -59,11 +59,18 @@ curl -s -X POST http://<地址>:8788/intake/records \
 # 期望 {"ok": true, ..., "received": 0}
 ```
 
-`crb-notify show` 看账本与待投递。
+看账本与待投递 —— **`show` 要 `YQA_REPO`**（它靠这个找 `plan.json`），
+而系统的环境在 `agent.env` 里，所以得像单元那样把环境带上（直接敲会报
+「没有配置知识库」）：
+
+```bash
+sudo -u yuque sh -c 'set -a; . /home/yuque/.yuque/agent.env; set +a; \
+  uv run --no-sync --project /opt/crb-notify crb-notify show'
+```
 
 ## 6. 出事了怎么办
 
-1. **先留证据**：`journalctl -u crb-notify`、`crb-notify show`、`git log`。
+1. **先留证据**：`journalctl -u crb-notify`、上面的 `crb-notify show`、`git log`。
 2. **通知没发出去**：先看 `crb-notify show` 里 `pending/` 有几条 —— 有就是桥没取走
    （那是桥的事，看 `journalctl -u qq-bridge`）；没有就是我们的判定或关联有问题。
 3. **认不出的变多了**：`unmatched.json` 里 `why` 会写原因。多半是
