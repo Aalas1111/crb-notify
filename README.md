@@ -53,6 +53,7 @@ curl -s -X POST http://127.0.0.1:8788/intake/records \
 ```bash
 crb-notify serve      # 起接收服务（8788）
 crb-notify show       # 看收到的记录、账本、待投递
+crb-notify forget     # 忘掉几条（联调期的假数据）；没 --yes 只列清单
 crb-notify deliver    # 补发（幂等：已投过/内容没变的不会重复处理）
 crb-notify version
 ```

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -120,6 +121,108 @@ def show_cmd() -> None:
         bucket = json.loads(unmatched.read_text(encoding="utf-8")).get("unmatched") or []
         if bucket:
             typer.secho(f"⚠ 认不出 {len(bucket)} 条（见 {unmatched}）", fg=typer.colors.YELLOW)
+
+
+@app.command("forget")
+def forget_cmd(
+    sqbh: Annotated[
+        list[str] | None, typer.Argument(help="要忘掉的申请编号（可给多个；只认账本里有的）")
+    ] = None,
+    all_: Annotated[
+        bool, typer.Option("--all", help="忘掉账本里现在有的全部 —— 联调收尾用")
+    ] = False,
+    yes: Annotated[bool, typer.Option("--yes", help="确认执行；不给就只是列出会忘掉哪些")] = False,
+) -> None:
+    """忘掉几条申请（联调期的假数据），之后同一条可以重新投、重走一遍判定。
+
+    **这是唯一会改变账本内容的地方**，但它也是追加 —— 追加一行「墓碑」把这条抹掉，
+    账本本身（含墓碑）永远只增不删。所以「谁在什么时候忘掉了什么」有迹可循。
+
+    没有 ``--yes`` 时只列清单，不动任何东西。**忘掉一条已经投出去的通知收不回来**
+    （QQ 里那条已经在群里了）；还没被桥取走的会顺手从 ``pending/`` 撤回。
+    """
+    settings = _settings()
+    approval = settings.approval_dir()
+    ledger = notify.read_ledger(approval)
+    known = {str(e.get("sqbh")) for e in ledger}
+
+    if all_:
+        targets = sorted(known)
+    elif sqbh:
+        targets = list(dict.fromkeys(str(s).strip() for s in sqbh if str(s).strip()))
+        missing = [s for s in targets if s not in known]
+        if missing:
+            typer.secho(
+                f"账本里没有这些申请编号：{'、'.join(missing)}\n"
+                f"（先 `show` 看一眼；也许它已经被忘掉了）",
+                fg=typer.colors.RED,
+                err=True,
+            )
+            raise typer.Exit(1)
+    else:
+        typer.secho("给申请编号，或者 --all（--help 看用法）", fg=typer.colors.RED, err=True)
+        raise typer.Exit(2)
+
+    if not targets:
+        typer.secho("账本是空的，没什么可忘的", fg=typer.colors.YELLOW)
+        return
+
+    label = {"approved": "已通过", "rejected": "已退回", notify.OUTCOME_UNMATCHED: "认不出"}
+    stuck: list[Path] = []
+    gone: list[str] = []
+    typer.echo(f"会忘掉这 {len(targets)} 条：")
+    for entry in ledger:
+        code = str(entry.get("sqbh"))
+        if code not in targets:
+            continue
+        outcome = str(entry.get("outcome") or "")
+        waiting, sent = deliver.notice_files(
+            settings,
+            notify.notification_id(code, outcome, [str(r) for r in (entry.get("rooms") or [])]),
+        )
+        stuck += waiting
+        if sent:
+            gone.append(code)
+        mark = (
+            "  ⚠ 已投递，收不回来"
+            if sent
+            else ("  （待投递，会从 pending/ 撤回）" if waiting else "")
+        )
+        typer.echo(
+            f"  {str(entry.get('first_seen_ended'))[:16]}  {label.get(outcome, outcome)}  "
+            f"{notify.normalize_title(notify.text_of(entry.get('snapshot') or {}, 'purpose'))}  "
+            f"{code}{mark}"
+        )
+    if gone:
+        typer.secho(
+            f"⚠ 其中 {len(gone)} 条已经投递过：QQ 里那条收不回来，"
+            f"《审批结果》会少这几行（账本里的墓碑留着，事后能看出是被谁忘的）",
+            fg=typer.colors.YELLOW,
+        )
+
+    if not yes:
+        typer.secho("（只是看看。确认要忘就加 --yes）", fg=typer.colors.YELLOW)
+        return
+
+    tombstones = notify.forget_entries(approval, targets)
+    withdrawn = 0
+    for path in stuck:
+        try:
+            path.unlink(missing_ok=True)
+            withdrawn += 1
+        except OSError as exc:
+            typer.secho(f"⚠ 撤回 {path.name} 失败：{exc}", fg=typer.colors.YELLOW, err=True)
+
+    summary = notify.rebuild(approval, settings.outbox(), [], repo=settings.yqa_repo)
+    document = json.loads((approval / "notifications.json").read_text(encoding="utf-8"))
+    delivery = deliver.deliver(settings, document)
+    typer.secho(
+        f"[OK] 忘掉 {len(targets)} 条（墓碑 {tombstones} 行），撤回待投递 {withdrawn} 条；"
+        f"通知文档现在 {summary['total']} 条、认不出 {summary['unmatched']} 条",
+        fg=typer.colors.GREEN,
+    )
+    yuque = delivery["yuque"]
+    typer.echo(f"     语雀《审批结果》：{yuque.get('output') or yuque.get('skipped')}")
 
 
 @app.command("deliver")

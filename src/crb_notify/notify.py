@@ -124,18 +124,24 @@ def classify(record: dict[str, Any]) -> Classification:
 
 
 # ---------------------------------------------------------------- 账本
+#: 「忘掉」墓碑的键。带它的行表示：这个 sqbh 之前记的都不算数了。
+#: 用**追加墓碑**而不是重写文件 —— 账本永远只追加（见 `append_ledger`），
+#: 于是「谁在什么时候忘掉了什么」也留下了痕迹，误忘还能从账本里看出来。
+FORGOTTEN_KEY = "forgotten_at"
+
+
 def ledger_path(root: Path) -> Path:
     return root / "ledger.jsonl"
 
 
 def read_ledger(root: Path) -> list[dict[str, Any]]:
-    """读账本。半行（写的时候被杀）跳过，不让整个账本读不出来。"""
+    """读账本（**已折叠掉忘掉的**）。半行（写的时候被杀）跳过，不让整个账本读不出来。"""
     path = ledger_path(root)
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
         return []
-    out: list[dict[str, Any]] = []
+    kept: dict[str, list[dict[str, Any]]] = {}
     for line in text.splitlines():
         line = line.strip()
         if not line:
@@ -144,9 +150,16 @@ def read_ledger(root: Path) -> list[dict[str, Any]]:
             parsed = json.loads(line)
         except ValueError:
             continue
-        if isinstance(parsed, dict) and parsed.get("sqbh"):
-            out.append(parsed)
-    return out
+        if not isinstance(parsed, dict) or not parsed.get("sqbh"):
+            continue
+        # 同一申请可以有多条（outcome 变了就是新消息，见 new_entries），
+        # 所以墓碑要抹掉它的**全部**条目，而不是最后一条。
+        sqbh = str(parsed["sqbh"])
+        if parsed.get(FORGOTTEN_KEY):
+            kept.pop(sqbh, None)
+        else:
+            kept.setdefault(sqbh, []).append(parsed)
+    return [entry for group in kept.values() for entry in group]
 
 
 def append_ledger(root: Path, entries: Iterable[dict[str, Any]]) -> int:
@@ -158,6 +171,17 @@ def append_ledger(root: Path, entries: Iterable[dict[str, Any]]) -> int:
             handle.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
             written += 1
     return written
+
+
+def forget_entries(root: Path, sqbhs: Iterable[str], now: float | None = None) -> int:
+    """把这几条申请忘掉（追加墓碑）。返回写了几行。
+
+    忘掉之后同一条记录可以重新投、重新走一遍判定 —— 联调时正是要这个。
+    """
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(now or time.time()))
+    return append_ledger(
+        root, [{"sqbh": sqbh, FORGOTTEN_KEY: stamp} for sqbh in dict.fromkeys(sqbhs)]
+    )
 
 
 def new_entries(

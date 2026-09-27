@@ -98,12 +98,17 @@ def _notice_payload(item: dict[str, Any], seq: int) -> dict[str, Any]:
     }
 
 
+def notice_files(settings: Settings, notice_id: str) -> tuple[list[Path], list[Path]]:
+    """这条通知现在在哪：``(pending 里还没被桥取走的, done 里已经发出去的)``。"""
+    folders = (settings.notify_pending_dir(), settings.notify_done_dir())
+    found = [sorted(f.glob(f"*{notice_id}*.json")) if f.is_dir() else [] for f in folders]
+    return found[0], found[1]
+
+
 def _already_delivered(settings: Settings, notice_id: str) -> bool:
     """`pending/` 或 `done/` 里有同 id 的通知 → 这条不用再写。"""
-    for folder in (settings.notify_pending_dir(), settings.notify_done_dir()):
-        if folder.is_dir() and any(folder.glob(f"*{notice_id}*.json")):
-            return True
-    return False
+    waiting, sent = notice_files(settings, notice_id)
+    return bool(waiting or sent)
 
 
 def write_qq_notices(settings: Settings, document: dict[str, Any]) -> dict[str, Any]:

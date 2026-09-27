@@ -261,3 +261,26 @@ def test_approved_without_a_room_is_not_announced(settings: Settings):
         body = _send(client, [{"raw": blind}]).json()
     assert body["new"] == 1 and body["unmatched"] == 1
     assert _notices(settings) == []
+
+
+# ---------------------------------------------------------------- 边界：这里没有入口
+def test_the_endpoint_exposes_nothing_but_intake(settings: Settings):
+    """路由清单是**钉死**的（`AGENTS.md` §1）。
+
+    密钥必然公开（油猴脚本），所以最坏情况只能是「收到垃圾数据」，
+    绝不能出现删除 / 触发 / 回调之类的入口。联调期要清假数据用
+    `crb-notify forget`（机器上的 CLI），**别顺手给它开一条 HTTP 路由**。
+    """
+    routes = {
+        (route.path, method)
+        for route in intake.build_app(settings).routes
+        for method in (getattr(route, "methods", None) or {""})
+        # HEAD 是 Starlette 给 GET 白送的，不算多出来的入口
+        if method in {"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"}
+    }
+    assert routes == {
+        ("/", "GET"),
+        ("/healthz", "GET"),
+        ("/intake/records", "POST"),
+        ("/intake/records", "OPTIONS"),
+    }, f"路由清单变了：{sorted(routes)}"

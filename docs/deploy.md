@@ -68,6 +68,29 @@ sudo -u yuque sh -c 'set -a; . /home/yuque/.yuque/agent.env; set +a; \
   uv run --no-sync --project /opt/crb-notify crb-notify show'
 ```
 
+### 清理（联调期的假数据）
+
+`forget` 是**唯一会改变账本内容**的命令，**只能在机器上敲**（不开 HTTP 路由，
+见 `AGENTS.md` §1）。命令同上，把 `show` 换成 `forget`：
+
+```bash
+sudo -u yuque sh -c 'set -a; . /home/yuque/.yuque/agent.env; set +a; \
+  uv run --no-sync --project /opt/crb-notify crb-notify forget <SQBH> --yes'
+
+# 列清单（不动任何东西）—— 先看这个
+… crb-notify forget <SQBH>
+# 全是假数据、想一次清完
+… crb-notify forget --all --yes
+```
+
+* 账本**只追加**，`forget` 也是 —— 它追加一行墓碑把那条抹掉，文件本身不重写
+  （重写会和 intake 的追加互相丢写，而且丢得静默）。所以「谁在什么时候忘了什么」
+  在 `ledger.jsonl` 里查得到。
+* 忘掉之后**同一条能重新投**，联调可以反复重跑。
+* 它顺手做的事：撤掉 `pending/` 里**还没被桥取走**的那条通知；重建
+  `notifications.json` / `unmatched.json`；跑一次 `yqa refresh-approval`。
+* **已经投出去的通知收不回来** —— `done/` 是桥的地盘，不许碰，命令会明说这一点。
+
 ## 6. 出事了怎么办
 
 1. **先留证据**：`journalctl -u crb-notify`、上面的 `crb-notify show`、`git log`。

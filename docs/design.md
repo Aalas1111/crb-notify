@@ -61,7 +61,7 @@ notifications.json（对外）  unmatched.json（认不出的，等人看）
 
 | 位置 | 做法 |
 |---|---|
-| 账本 | **只追加**；按 `SQBH` 比 `outcome`，一样就不重复记 |
+| 账本 | **只追加**；按 `SQBH` 比 `outcome`，一样就不重复记。清理（`forget`）也是追加一行**墓碑**，不重写文件 |
 | `notificationId` | `sha1(sqbh\|outcome\|rooms)[:8]`，**不含时间戳** —— 含了就每轮都变，下游去重立刻失效 |
 | QQ 通知 | 写 `pending/` 前先看 `pending/` 与 `done/` 里有没有同 id；有就跳过（否则社员收到两条） |
 | 语雀 | `yqa refresh-approval` 自身幂等：内容没变一个字都不写 |
