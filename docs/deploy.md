@@ -7,8 +7,8 @@
 | 路径 | 是什么 |
 |---|---|
 | `/opt/crb-notify` | 代码检出（只允许快进） |
-| `/var/lib/crb-notify/workspace` | 账本、记录快照、产出（本项目自己的） |
 | `/etc/systemd/system/crb-notify.service` | 生效的单元（权威副本在 `deploy/`） |
+| `/var/lib/yuque-agent/workspace/<repo>/outbox/approval/` | **本项目的产物**：账本 / 记录快照 / `notifications.json` / `unmatched.json`。`yqa` 就从这儿读《审批结果》 |
 | `/var/lib/yuque-agent/workspace/<repo>/outbox/notify/pending/` | QQ 通知取件处（**桥会搬走**） |
 | `/home/yuque/.crb-notify/env` | 本项目自己的配置 + 密钥（见 §3） |
 
@@ -35,10 +35,13 @@ sudo -u yuque env HOME=/home/yuque /usr/local/bin/uv sync --project /opt/crb-not
 | 变量 | 说明 |
 |---|---|
 | `CRBN_INTAKE_KEY` | 投递密钥。**不是安全边界**（插件是油猴脚本，源码谁都能看），只是挡误投与扫描器 |
-| `CRBN_WORKSPACE` | `/var/lib/crb-notify/workspace`（账本、记录快照、产出） |
-| `CRBN_YUQUE_WORKSPACE` | `/var/lib/yuque-agent/workspace`（找 `plan.json` 与 `notify/pending/`） |
+| `CRBN_YUQUE_WORKSPACE` | `/var/lib/yuque-agent/workspace`（产物写在它的 `outbox/approval/`，也从这儿找 `plan.json`） |
 | `CRBN_PORT` | `8788` |
 | `CRBN_YQA_BIN` | `uv run --no-sync --project /opt/yuque-agent yqa`（值里有空格，**要加引号**） |
+
+⚠️ 产物目录**必须**是 `<yuque 工作区>/<repo>/outbox/approval/` —— `yqa` 那侧认的
+就是这个词。写到自己家目录里，表现是「QQ 通知照发、文档一直是空的」，**而且不报错**
+（2026-09-27 联调实测踩到过，见 `config.approval_dir()`）。
 
 另一个必需的变量在别处：`YQA_REPO`（`/home/yuque/.yuque/agent.env`，已存在，
 `ghxd00/jsjysq`）—— 它决定 `plan.json` 在哪。

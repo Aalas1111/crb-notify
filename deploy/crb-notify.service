@@ -11,7 +11,7 @@ Group=yuque
 WorkingDirectory=/opt/crb-notify
 
 # 复用 yuque-agent 那份环境（YQA_REPO 在里面）；本项目自己的配置与密钥
-# 都在它自己的文件里 —— **包括 CRBN_WORKSPACE / CRBN_YQA_BIN**。
+# 都在它自己的文件里 —— **包括 CRBN_YUQUE_WORKSPACE / CRBN_YQA_BIN**。
 # 那些值曾经写成本单元的 `Environment=`，结果只有服务拿得到：手工跑 CLI
 # （show / forget / deliver）时缺值，`CRBN_YQA_BIN` 回落到机器上没有的 `yqa`，
 # 于是语雀那篇静默不重生。配置只放一处，单元不要重复设。

@@ -9,6 +9,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from crb_notify.config import Settings
+
 ROOT = Path(__file__).resolve().parents[1]
 UNIT = (ROOT / "deploy" / "crb-notify.service").read_text(encoding="utf-8")
 PYPROJECT = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
@@ -143,3 +145,28 @@ def test_env_file_path_is_the_same_everywhere():
     assert "/home/yuque/.crb-notify/env" in deploy_doc, "文档要写同一个路径"
     assert ".crb-agent/env" not in UNIT, "别指向旧项目的目录"
     assert ".crb-agent/env" not in deploy_doc, "文档里也别留旧路径"
+
+
+def test_approval_dir_is_where_yqa_reads_the_notifications():
+    """产物目录必须落在 `<yuque 工作区>/<repo>/outbox/approval`。
+
+    `yqa` 那侧就是从这儿读 `notifications.json` 渲染《审批结果》的
+    （它的 `approvaldoc.approval_dir()` 认的是同一个字符串）。两边各写各的，
+    结果是「QQ 通知照发、文档一直是空的」，**而且一点都不报错**。
+
+    实测踩到（2026-09-27 联调）：从 crb-agent 拆出本项目时把它改成了自己的
+    `workspace/approval`，文档空了整整一轮，直到有人投了一条能发文通知的
+    真数据、去文档里找却找不到才发现。
+    """
+    settings = Settings(
+        port=8788,
+        host="127.0.0.1",
+        yuque_workspace=Path("/yw"),
+        yqa_repo="g/r",
+        yqa_bin="yqa",
+        intake_key="",
+        notify_qq=True,
+        notify_yuque=False,
+    )
+    assert settings.approval_dir() == Path("/yw/g_r/outbox/approval")
+    assert settings.approval_dir().parent == settings.outbox()

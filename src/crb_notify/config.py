@@ -44,11 +44,8 @@ class Settings:
     port: int
     host: str
 
-    #: 我们自己的工作区：记录快照 + 账本 + 产出。**不往别人的工作区里写**
-    #: （唯一的例外是 QQ 通知 —— 那是契约允许的取件目录）。
-    workspace: Path
-
-    #: `yqa` 的工作区（**只读**：找 plan.json 与归档，把记录关联回语雀的 applicationId）。
+    #: `yqa` 的工作区（我们**只**往它的 `outbox/approval/` 与 `outbox/notify/pending/`
+    #: 两个目录里写 —— 那两处都是契约允许的交接点，见 `approval_dir()` 的说明）。
     yuque_workspace: Path
 
     #: 语雀知识库 `<group>/<repo>`。
@@ -71,7 +68,12 @@ class Settings:
         return self.yqa_repo.replace("/", "_").strip()
 
     def outbox(self) -> Path:
-        """`yqa` 的产出目录（只读）。"""
+        """`yqa` 的产出目录。
+
+        推不出来就**明确报错**，不要悄悄退化成 ``<workspace>/outbox`` ——
+        那会指向一个空目录，让「本周没有申请」和「你路径配错了」看起来一模一样，
+        而这两种情况的处理方式完全相反（一种是等，一种是改配置）。
+        """
         if not self.repo_slug:
             raise ConfigError(
                 "推不出语雀产出目录：没有配置 YQA_REPO=<group>/<repo>。\n"
@@ -80,8 +82,16 @@ class Settings:
         return self.yuque_workspace / self.repo_slug / "outbox"
 
     def approval_dir(self) -> Path:
-        """我们自己的产物：账本、记录快照、通知文档。"""
-        return self.workspace / "approval"
+        """审批结果的产物目录：账本 / 记录快照 / 对外通知 / unmatched。
+
+        **必须在 `outbox/approval`** —— `yqa` 那侧就是从这儿读 `notifications.json`
+        渲染《审批结果》的（`approvaldoc.approval_dir()`）。这两边是同一个字符串，
+        各写各的就会「通知发出去了、文档一直是空的」，而且一点都不报错。
+
+        2026-09-27 实测踩到过：拆出 crb-notify 时把它改成了自己的 workspace，
+        于是文档空了整整一轮联调。别改回去。
+        """
+        return self.outbox() / "approval"
 
     def notify_pending_dir(self) -> Path:
         """QQ 桥取件的目录（**唯一一处往 yqa 工作区写**，而且是契约允许的）。"""
@@ -102,7 +112,6 @@ class Settings:
         return cls(
             port=int(_first(os.environ.get("CRBN_PORT")) or DEFAULT_PORT),
             host=_first(os.environ.get("CRBN_HOST")) or "0.0.0.0",
-            workspace=_env_path("CRBN_WORKSPACE", Path("/var/lib/crb-notify/workspace")),
             yuque_workspace=_env_path(
                 "CRBN_YUQUE_WORKSPACE", Path("/var/lib/yuque-agent/workspace")
             ),

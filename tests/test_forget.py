@@ -59,7 +59,6 @@ def _send(settings: Settings, records: list[Any]) -> dict[str, Any]:
 def _forget(monkeypatch, settings: Settings, *args: str):
     """按操作员的样子跑 CLI —— 走 `Settings.from_env()`，所以环境得摆好。"""
     monkeypatch.setenv("YQA_REPO", settings.yqa_repo)
-    monkeypatch.setenv("CRBN_WORKSPACE", str(settings.workspace))
     monkeypatch.setenv("CRBN_YUQUE_WORKSPACE", str(settings.yuque_workspace))
     monkeypatch.setenv("CRBN_NOTIFY_YUQUE", "off")
     return CliRunner().invoke(app, ["forget", *args])
@@ -76,8 +75,8 @@ def _document(settings: Settings) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------- 折叠
-def test_read_ledger_folds_tombstones(workspace):
-    root = workspace / "approval"
+def test_read_ledger_folds_tombstones(tmp_path):
+    root = tmp_path / "approval"
     notify.append_ledger(root, [{"sqbh": "aaa", "outcome": "approved"}])
     notify.append_ledger(root, [{"sqbh": "bbb", "outcome": "rejected"}])
     notify.forget_entries(root, ["aaa"])
@@ -92,9 +91,9 @@ def _lines(root) -> list[str]:
     return [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-def test_tombstone_drops_every_entry_of_that_application(workspace):
+def test_tombstone_drops_every_entry_of_that_application(tmp_path):
     """一条申请可以有多条记录（outcome 变了就是新消息）—— 墓碑要全抹掉。"""
-    root = workspace / "approval"
+    root = tmp_path / "approval"
     notify.append_ledger(
         root,
         [
@@ -107,9 +106,9 @@ def test_tombstone_drops_every_entry_of_that_application(workspace):
     assert [e["sqbh"] for e in notify.read_ledger(root)] == ["bbb"]
 
 
-def test_same_sqbh_can_be_reused_after_forget(workspace):
+def test_same_sqbh_can_be_reused_after_forget(tmp_path):
     """忘掉之后再记同一条，要能重新出现（联调反复重跑同一条就靠这个）。"""
-    root = workspace / "approval"
+    root = tmp_path / "approval"
     notify.append_ledger(root, [{"sqbh": "aaa", "outcome": "approved"}])
     notify.forget_entries(root, ["aaa"])
     notify.append_ledger(root, [{"sqbh": "aaa", "outcome": "approved"}])
@@ -223,7 +222,6 @@ def test_yuque_failure_is_reported_and_fails_the_command(settings: Settings, mon
     """
     _send(settings, [{"raw": FAKE}])
     monkeypatch.setenv("YQA_REPO", settings.yqa_repo)
-    monkeypatch.setenv("CRBN_WORKSPACE", str(settings.workspace))
     monkeypatch.setenv("CRBN_YUQUE_WORKSPACE", str(settings.yuque_workspace))
     monkeypatch.setenv("CRBN_NOTIFY_YUQUE", "on")
     monkeypatch.setenv("CRBN_YQA_BIN", "surely-not-an-installed-command")

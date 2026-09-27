@@ -62,7 +62,7 @@ def yuque_workspace(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def settings(workspace: Path, yuque_workspace: Path) -> Settings:
+def settings(yuque_workspace: Path) -> Settings:
     """默认**关掉语雀那条路**（否则测试会去调 yqa）。
 
     它本身有一组单独的测试，那里会用一个假命令替身。
@@ -70,7 +70,6 @@ def settings(workspace: Path, yuque_workspace: Path) -> Settings:
     return Settings(
         port=8788,
         host="127.0.0.1",
-        workspace=workspace,
         yuque_workspace=yuque_workspace,
         yqa_repo="ghxd00/jsjysq",
         yqa_bin="yqa",
@@ -78,3 +77,9 @@ def settings(workspace: Path, yuque_workspace: Path) -> Settings:
         notify_qq=True,
         notify_yuque=False,
     )
+
+
+@pytest.fixture
+def approval_dir(settings: Settings) -> Path:
+    """产物目录（= `yqa` 那侧读《审批结果》的地方）。测试里常要直接看它。"""
+    return settings.approval_dir()
